@@ -1,52 +1,27 @@
 <template>
-  <div class="w-full space-y-2">
-    <!-- Prompt Input Area -->
-    <div class="relative">
+  <div class="space-y-4">
+    <!-- Custom Prompt Input -->
       <textarea
-        v-model="prompt"
-        placeholder="Enter your prompt here..."
-        rows="4"
-        class="w-full px-4 py-3 text-gray-700 bg-white border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none transition-all duration-200 placeholder-gray-400 resize-none"
-        :class="{ 'border-blue-500 ring-2 ring-blue-200': prompt.length > 0 }"
+      v-model="promptText"
+      @input="emitPrompt"
+      class="p-3 w-full rounded-md border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+      placeholder="Enter your analysis request or select from suggestions below"
+      rows="3"
       ></textarea>
       
-      <!-- Character Count -->
-      <div class="absolute bottom-3 right-3">
-        <span class="text-sm text-gray-400">
-          {{ prompt.length }}/500
-        </span>
+    <!-- Suggested Prompts -->
+    <div class="space-y-2">
+      <p class="text-sm font-medium text-gray-700">Suggested Analyses:</p>
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <button
+          v-for="(prompt, index) in suggestedPrompts"
+          :key="index"
+          @click="selectPrompt(prompt)"
+          class="p-2 text-sm text-left text-gray-700 rounded-md transition-colors hover:bg-blue-50"
+        >
+          {{ prompt.label }}
+        </button>
       </div>
-    </div>
-
-    <!-- Suggestions/Tips -->
-    <div class="bg-blue-50 rounded-lg p-4 border border-blue-100">
-      <div class="flex items-start space-x-3">
-        <div class="flex-shrink-0">
-          <svg class="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-        </div>
-        <div class="flex-1">
-          <h4 class="text-sm font-medium text-blue-800 mb-1">Prompt Tips</h4>
-          <ul class="text-sm text-blue-600 space-y-1">
-            <li>• Be specific about what you want to analyze</li>
-            <li>• Include any relevant context or constraints</li>
-            <li>• Specify the desired format of the response</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-
-    <!-- Quick Prompts (Optional) -->
-    <div class="flex flex-wrap gap-2 mt-2">
-      <button
-        v-for="(quickPrompt, index) in quickPrompts"
-        :key="index"
-        @click="insertQuickPrompt(quickPrompt)"
-        class="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors duration-200"
-      >
-        {{ quickPrompt }}
-      </button>
     </div>
   </div>
 </template>
@@ -55,53 +30,228 @@
 export default {
   data() {
     return {
-      prompt: '',
-      quickPrompts: [
-        'Analyze trends',
-        'Summarize data',
-        'Find patterns',
-        'Compare values'
+      promptText: '',
+      suggestedPrompts: [
+        {
+          label: 'Claims Value Analysis',
+          prompt: 'Analyze claims metrics showing \n1. submitted claims value vs approved amounts, \n2. savings achieved for each provider, \n3. prominent rejection reasons along with cost saved',
+          structure: {
+            type: 'claims_value',
+            metrics: {
+              primary: [
+                'submitted_claims',
+                'approved_claims', 
+                'savings',
+                'rejection_reasons',
+                'provider_savings'
+              ],
+              aggregations: {
+                by_provider: ['savings', 'approval_rate'],
+                by_reason: ['count', 'value_saved']
+              },
+              compare: 'month_over_month'
+            },
+            visualization: {
+              layout: {
+                metrics: [
+                  {
+                    title: 'Value of Submitted Claims',
+                    format: 'currency',
+                    prefix: 'KES',
+                    suffix: 'Million',
+                    highlight: true,
+                    comparison: {
+                      type: 'percentage',
+                      label: 'from last month'
+                    }
+                  },
+                  {
+                    title: 'Value of Savings',
+                    format: 'currency',
+                    prefix: 'KES',
+                    value_type: 'exact'
+                  },
+                  {
+                    title: 'Percentage Saved',
+                    format: 'percentage',
+                    highlight: true
+                  }
+                ],
+                charts: [
+                  {
+                    title: 'Claims Value Analysis',
+                    type: 'bar',
+                    stacked: false,
+                    colors: ['#6B9AC4', '#1B365C'],
+                    labels: {
+                      approved: 'Amount Approved',
+                      requested: 'Amount Requested'
+                    },
+                    yAxis: {
+                      format: 'currency',
+                      steps: 100000000,
+                      max: 500000000
+                    }
+                  },
+                  {
+                    title: 'Provider-wise Savings Distribution',
+                    type: 'bar',
+                    stacked: true,
+                    colors: ['#10B981', '#059669', '#047857'],
+                    limit: 10,
+                    sort: 'desc',
+                    yAxis: {
+                      format: 'currency'
+                    }
+                  },
+                  {
+                    title: 'Top Rejection Reasons & Associated Savings',
+                    type: 'bar',
+                    stacked: true,
+                    horizontal: true,
+                    colors: ['#EF4444', '#DC2626', '#B91C1C'],
+                    limit: 5,
+                    sort: 'value',
+                    metrics: ['count', 'value_saved'],
+                    labels: {
+                      count: 'Number of Rejections',
+                      value_saved: 'Value Saved (KES)'
+                    }
+                  }
+                ]
+              }
+            },
+            analysis: {
+              focus_areas: [
+                'claims_value_comparison',
+                'provider_savings_distribution',
+                'rejection_patterns'
+              ],
+              required_insights: [
+                'top_saving_providers',
+                'major_rejection_categories',
+                'cost_saving_opportunities'
+              ],
+              thresholds: {
+                significant_variance: 0.15,
+                high_rejection_rate: 0.25,
+                notable_saving: 1000000
+              }
+            }
+          }
+        },
+        {
+          label: 'Provider Performance Dashboard',
+          prompt: 'Create a comprehensive view of provider performance metrics and rankings.',
+          structure: {
+            type: 'provider_metrics',
+            chartType: 'bar',
+            metrics: {
+              primary: ['total_providers', 'active_providers'],
+              secondary: ['claims_volume', 'approval_rate', 'avg_value'],
+              limit: 5
+            },
+            visualization: {
+              multiChart: true,
+              charts: [
+                {
+                  type: 'bar',
+                  metric: 'claims_volume',
+                  colors: ['#4F46E5', '#7C3AED', '#EC4899', '#F59E0B', '#10B981'],
+                  title: 'Top 5 Providers by Claims Volume'
+                },
+                {
+                  type: 'line',
+                  metric: 'approval_rate',
+                  title: 'Approval Rates Trend'
+                }
+              ]
+            }
+          }
+        },
+        {
+          label: 'Top Provider Analysis',
+          prompt: 'Deep dive into top 5 providers performance trends and patterns.',
+          structure: {
+            type: 'provider_trends',
+            chartType: 'line',
+            metrics: {
+              primary: ['claims_volume', 'approval_rate', 'avg_claim_value'],
+              timeframe: 'last_6_months',
+              providers: 'top_5'
+            },
+            visualization: {
+              multiLine: true,
+              showLegend: true,
+              annotations: {
+                highlight_anomalies: true,
+                trend_lines: true
+              },
+              comparisons: {
+                benchmark: 'average',
+                show_variance: true
+              }
+            }
+          }
+        },
+        {
+          label: 'Claims Processing Efficiency',
+          prompt: 'Analyze claims processing efficiency metrics and bottlenecks.',
+          structure: {
+            type: 'processing_efficiency',
+            chartType: 'mixed',
+            metrics: {
+              primary: ['processing_time', 'approval_rate', 'rejection_reasons'],
+              timeframe: 'daily'
+            },
+            visualization: {
+              charts: [
+                {
+                  type: 'line',
+                  metric: 'processing_time',
+                  title: 'Processing Time Trend'
+                },
+                {
+                  type: 'pie',
+                  metric: 'rejection_reasons',
+                  title: 'Rejection Distribution'
+                }
+              ]
+            }
+          }
+        },
+        {
+          label: 'Value Recovery Analysis',
+          prompt: 'Analyze patterns in value saved through claims processing.',
+          structure: {
+            type: 'value_recovery',
+            chartType: 'area',
+            metrics: {
+              primary: ['potential_savings', 'actual_savings', 'recovery_rate'],
+              breakdown: ['category', 'provider']
+            },
+            visualization: {
+              stacked: true,
+              showPercentages: true,
+              cumulative: true,
+              annotations: {
+                highlight_opportunities: true
+              }
+            }
+          }
+        }
       ]
     }
   },
-  watch: {
-    prompt(newPrompt) {
-      // Limit to 500 characters
-      if (newPrompt.length > 500) {
-        this.prompt = newPrompt.slice(0, 500);
-      }
-      this.$emit('promptUpdated', this.prompt);
-    }
-  },
   methods: {
-    insertQuickPrompt(quickPrompt) {
-      if (this.prompt) {
-        this.prompt += ' ' + quickPrompt.toLowerCase();
-      } else {
-        this.prompt = quickPrompt;
-      }
+    emitPrompt() {
+      this.$emit('promptUpdated', this.promptText)
+    },
+    selectPrompt(prompt) {
+      this.promptText = prompt.prompt
+      this.$emit('clearResults')
+      this.$emit('promptUpdated', prompt.prompt, prompt.structure)
     }
   }
 }
 </script>
-
-<style scoped>
-/* Custom scrollbar for textarea */
-textarea::-webkit-scrollbar {
-  width: 8px;
-}
-
-textarea::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-textarea::-webkit-scrollbar-thumb {
-  background: #ddd;
-  border-radius: 4px;
-}
-
-textarea::-webkit-scrollbar-thumb:hover {
-  background: #ccc;
-}
-</style> 
