@@ -1,43 +1,88 @@
 <template>
   <div class="space-y-4">
-    <!-- File Input -->
-    <div class="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-      <div class="space-y-1 text-center">
-        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-          <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-        <div class="flex text-sm text-gray-600">
-          <label class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-            <span>Upload a file</span>
-            <input 
-              ref="fileInput"
-              type="file" 
-              class="sr-only"
-              accept=".csv,.xlsx,.xls"
-              @change="handleFileUpload"
-            >
-          </label>
-          <p class="pl-1">or drag and drop</p>
-        </div>
-        <p class="text-xs text-gray-500">CSV, Excel files up to 10MB</p>
+    <!-- Data Source Selection -->
+    <div class="mb-4">
+      <h3 class="mb-2 text-lg font-medium text-gray-900">Select Data Source</h3>
+      <div class="flex space-x-4">
+        <button 
+          @click="useSampleData"
+          :class="[
+            'px-4 py-2 rounded-md text-sm font-medium',
+            dataSource === 'sample' 
+              ? 'bg-blue-600 text-white' 
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          ]"
+        >
+          Use DB Records
+        </button>
+        <button 
+          @click="dataSource = 'upload'"
+          :class="[
+            'px-4 py-2 rounded-md text-sm font-medium',
+            dataSource === 'upload' 
+              ? 'bg-blue-600 text-white' 
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          ]"
+        >
+          Upload Own Data
+        </button>
       </div>
     </div>
 
-    <!-- File Preview -->
-    <div v-if="selectedFile" class="bg-gray-50 p-4 rounded-md">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center">
-          <svg class="h-6 w-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0h8v12H6V4z" clip-rule="evenodd" />
+    <!-- File Upload Section -->
+    <div v-if="dataSource === 'upload'" class="transition-all duration-300">
+      <!-- File Input -->
+      <div class="flex justify-center px-6 pt-5 pb-6 rounded-md border-2 border-gray-300 border-dashed">
+        <div class="space-y-1 text-center">
+          <svg class="mx-auto w-12 h-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-          <span class="ml-2 text-sm text-gray-500">{{ selectedFile.name }}</span>
+          <div class="flex text-sm text-gray-600">
+            <label class="relative font-medium text-blue-600 bg-white rounded-md cursor-pointer hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+              <span>Upload a file</span>
+              <input 
+                ref="fileInput"
+                type="file" 
+                class="sr-only"
+                accept=".csv,.xlsx,.xls"
+                @change="handleFileUpload"
+              >
+            </label>
+            <p class="pl-1">or drag and drop</p>
+          </div>
+          <p class="text-xs text-gray-500">CSV, Excel files up to 10MB</p>
         </div>
-        <button 
-          @click="removeFile" 
-          class="text-sm text-red-600 hover:text-red-800"
-        >
-          Remove
-        </button>
+      </div>
+
+      <!-- File Preview -->
+      <div v-if="selectedFile" class="p-4 mt-4 bg-gray-50 rounded-md">
+        <div class="flex justify-between items-center">
+          <div class="flex items-center">
+            <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0h8v12H6V4z" clip-rule="evenodd" />
+            </svg>
+            <span class="ml-2 text-sm text-gray-500">{{ selectedFile.name }}</span>
+          </div>
+          <button 
+            @click="removeFile" 
+            class="text-sm text-red-600 hover:text-red-800"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sample Data Preview -->
+    <div v-else-if="dataSource === 'sample'" class="p-4 bg-gray-50 rounded-md">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center">
+          <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span class="ml-2 text-sm text-gray-700">Sample Claims Data</span>
+        </div>
+        <span class="text-sm text-gray-500">500 records</span>
       </div>
     </div>
   </div>
@@ -45,15 +90,24 @@
 
 <script>
 import * as XLSX from 'xlsx';
+import DataService from '@/services/DataService';
 
 export default {
   data() {
     return {
       selectedFile: null,
-      fileData: null
+      fileData: null,
+      dataSource: null // 'sample' or 'upload'
     }
   },
   methods: {
+    async useSampleData() {
+      this.dataSource = 'sample';
+      this.selectedFile = null;
+      const sampleData = DataService.formatSampleData();
+      this.$emit('fileParsed', sampleData);
+    },
+    
     handleFileUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -211,16 +265,12 @@ export default {
     },
     
     removeFile() {
-      // Reset the file input
       if (this.$refs.fileInput) {
         this.$refs.fileInput.value = '';
       }
-      
-      // Clear the selected file
       this.selectedFile = null;
       this.fileData = null;
-      
-      // Emit null to parent to clear any existing data
+      this.dataSource = null;
       this.$emit('fileParsed', null);
     }
   }

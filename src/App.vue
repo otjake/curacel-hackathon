@@ -6,8 +6,8 @@
         <div class="flex justify-between h-16">
           <div class="flex items-center">
             <!-- Logo -->
-            <img src="https://placehold.co/40x40" alt="Logo" class="w-10 h-10 rounded-full"/>
-            <span class="ml-2 text-xl font-semibold text-gray-800">CSV GPT</span>
+            <img src="https://cdn.prod.website-files.com/636cd89449397edf946d99a9/636d307bd471f94b8d85fd30_Curacel-Logo%20(1).svg" alt="Logo" class="w-10 h-10 rounded-full"/>
+            <span class="ml-2 text-xl font-semibold text-gray-800">ANALYZER1.0</span>
           </div>
         </div>
       </div>
@@ -18,7 +18,7 @@
       <div class="mx-auto max-w-3xl">
         <div class="p-6 bg-white rounded-xl border border-gray-200 shadow-sm sm:p-8 lg:p-10">
           <h1 class="mb-6 text-2xl font-bold text-center text-gray-900 sm:text-3xl lg:text-4xl sm:mb-8">
-            CSV/Excel to GPT Chat Response
+             Data Analyzer 1.0
           </h1>
 
           <!-- File Upload Section -->
@@ -172,13 +172,13 @@
           </div>
 
           <!-- Add this after the Submit Button -->
-          <div v-if="isLoading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
+          <div v-if="isLoading" class="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
+            <div class="p-8 mx-4 w-full max-w-md bg-white rounded-lg shadow-xl">
               <div class="flex flex-col items-center space-y-4">
                 <!-- Animated Loading Icon -->
                 <div class="relative w-20 h-20">
-                  <div class="absolute top-0 left-0 w-full h-full border-4 border-blue-200 rounded-full"></div>
-                  <div class="absolute top-0 left-0 w-full h-full border-4 border-blue-600 rounded-full animate-spin border-t-transparent"></div>
+                  <div class="absolute top-0 left-0 w-full h-full rounded-full border-4 border-blue-200"></div>
+                  <div class="absolute top-0 left-0 w-full h-full rounded-full border-4 border-blue-600 animate-spin border-t-transparent"></div>
                 </div>
                 
                 <!-- Loading Text -->
@@ -188,7 +188,7 @@
                 </div>
 
                 <!-- Progress Steps -->
-                <div class="w-full space-y-2">
+                <div class="space-y-2 w-full">
                   <div v-for="(step, index) in loadingSteps" :key="index"
                        class="flex items-center space-x-2">
                     <div :class="`w-4 h-4 rounded-full ${step.completed ? 'bg-green-500' : 'bg-gray-200'}`"></div>
@@ -211,6 +211,7 @@ import axios from 'axios';
 import FileUpload from './components/FileUpload.vue';
 import PromptInput from './components/PromptInput.vue';
 import DataChart from './components/DataChart.vue';
+import DataService from '@/services/DataService';
 
 export default {
   components: { 
@@ -242,7 +243,10 @@ export default {
   methods: {
     handleFileParsed(data) {
       this.fileData = data;
-      console.log("fileData app",this.fileData);
+      // Clear previous results when data source changes
+      this.response = null;
+      this.parsedResponse = null;
+      this.chartData = null;
     },
     clearResults() {
       // Clear all response-related data
@@ -269,7 +273,7 @@ export default {
       // Then set new values
       this.$nextTick(() => {
       this.prompt = prompt;
-        this.analysisStructure = structure;
+      this.analysisStructure = structure;
       });
     },
     async getResponse() {
@@ -293,8 +297,7 @@ export default {
           messages: [
             {
               role: "system",
-              content: `You are an expert data analyst specializing in claims and provider analysis. 
-              Analyze the data according to these metrics: ${JSON.stringify(this.analysisStructure?.metrics || {})}.
+              content: `You are an expert data analyst specializing in medical data analysis. 
               Important date handling instructions:
               - Use only actual dates present in the data
               - Do not generate or hallucinate dates
@@ -308,8 +311,7 @@ export default {
               Headers: ${JSON.stringify(this.fileData?.headers)}
               Date columns: ${JSON.stringify(this.fileData?.metadata?.dateColumns)}
               Data: ${JSON.stringify(this.fileData?.rows)}
-              
-              ${this.prompt}`
+              What I want to do is: ${this.prompt}`
             }
           ],
           functions: [
