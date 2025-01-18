@@ -294,6 +294,7 @@ export default {
         
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
           model: "gpt-4o-mini",
+          temperature: 0.7,
           messages: [
             {
               role: "system",
@@ -307,11 +308,12 @@ export default {
             },
             {
               role: "user",
-              content: `Here is the dataset for analysis:
-              Headers: ${JSON.stringify(this.fileData?.headers)}
-              Date columns: ${JSON.stringify(this.fileData?.metadata?.dateColumns)}
-              Data: ${JSON.stringify(this.fileData?.rows)}
-              What I want to do is: ${this.prompt}`
+              content: `Analyze the following dataset:
+              -Headers: ${JSON.stringify(this.fileData?.headers, null, 2)}
+              -Date Columns: ${JSON.stringify(this.fileData?.metadata?.dateColumns, null, 2)}
+              -Data: ${JSON.stringify(this.fileData?.rows, null, 2)}
+              Task: ${this.prompt}
+              Expected Output: Provide a structured JSON response with a summary and visualizations as described in the system prompt.`
             }
           ],
           functions: [

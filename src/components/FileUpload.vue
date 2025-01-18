@@ -272,6 +272,199 @@ export default {
       this.fileData = null;
       this.dataSource = null;
       this.$emit('fileParsed', null);
+    },
+
+    detectColumnTypes(rows, headers) {
+      const columnTypes = {};
+      const sampleSize = Math.min(100, rows.length); // Check first 100 rows for performance
+      
+      headers.forEach((header, index) => {
+        const values = rows.slice(0, sampleSize).map(row => row[index]);
+        columnTypes[header] = this.detectColumnType(values);
+      });
+
+      return columnTypes;
+    },
+
+    detectColumnType(values) {
+      const nonNullValues = values.filter(v => v !== null && v !== undefined && v !== '');
+      if (nonNullValues.length === 0) return { type: 'empty' };
+
+      const types = {
+        date: 0,
+        number: 0,
+        boolean: 0,
+        string: 0
+      };
+
+      nonNullValues.forEach(value => {
+        if (this.isDate(value)) types.date++;
+        else if (this.isNumber(value)) types.number++;
+        else if (this.isBoolean(value)) types.boolean++;
+        else types.string++;
+      });
+
+      // Determine dominant type
+      const total = Object.values(types).reduce((a, b) => a + b, 0);
+      const threshold = 0.8; // 80% of values must match type
+
+      for (const [type, count] of Object.entries(types)) {
+        if (count / total >= threshold) return { type, format: this.detectFormat(type, nonNullValues) };
+      }
+
+      return { type: 'string' }; // Default to string if no clear type
+    },
+
+    isDate(value) {
+      if (typeof value === 'string') {
+        // Common date formats
+        const datePatterns = [
+          /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD
+          /^\d{2}-\d{2}-\d{4}$/, // DD-MM-YYYY
+          /^\d{2}\/\d{2}\/\d{4}$/, // DD/MM/YYYY
+          /^\d{4}\/\d{2}\/\d{2}$/, // YYYY/MM/DD
+          /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/, // YYYY-MM-DD HH:mm:ss
+          /^\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}$/, // DD-MM-YYYY HH:mm:ss
+        ];
+
+        return datePatterns.some(pattern => pattern.test(value)) ||
+               !isNaN(Date.parse(value));
+      }
+      return false;
+    },
+
+    isNumber(value) {
+      return !isNaN(parseFloat(value)) && isFinite(value);
+    },
+
+    isBoolean(value) {
+      const booleanValues = ['true', 'false', '1', '0', 'yes', 'no'];
+      return booleanValues.includes(String(value).toLowerCase());
+    },
+
+    detectFormat(type, values) {
+      if (type === 'date') {
+        const sample = values[0];
+        if (typeof sample === 'string') {
+          if (sample.includes('T')) return 'ISO';
+          if (sample.includes('-')) return 'YYYY-MM-DD';
+          if (sample.includes('/')) return 'DD/MM/YYYY';
+          return 'unknown';
+        }
+      }
+      return null;
+    },
+
+    async processFile(file) {
+      try {
+        const data = await this.parseFile(file);
+        if (!data || !data.headers || !data.rows || data.rows.length === 0) {
+          throw new Error('Invalid file format or empty file');
+        }
+
+        // Detect column types
+        const columnTypes = this.detectColumnTypes(data.rows, data.headers);
+        
+        // Find date columns
+        const dateColumns = Object.entries(columnTypes)
+          .filter(([_, info]) => info.type === 'date')
+          .map(([header, info]) => ({
+            header,
+            format: info.format
+          }));
+
+        // Process and standardize dates
+        const processedRows = data.rows.map(row => {
+          return row.map((cell, index) => {
+            const header = data.headers[index];
+            const columnType = columnTypes[header];
+            
+            if (columnType.type === 'date' && cell) {
+              return this.standardizeDate(cell, columnType.format);
+            }
+            return cell;
+          });
+        });
+
+        // Create metadata
+        const metadata = {
+          columnTypes,
+          dateColumns,
+          rowCount: processedRows.length,
+          columnCount: data.headers.length,
+          summary: this.generateDataSummary(processedRows, data.headers, columnTypes)
+        };
+
+        // Emit processed data
+        this.$emit('fileParsed', {
+          headers: data.headers,
+          rows: processedRows,
+          metadata
+        });
+
+      } catch (error) {
+        console.error('Error processing file:', error);
+        throw error;
+      }
+    },
+
+    standardizeDate(value, format) {
+      try {
+        let date;
+        if (format === 'ISO') {
+          date = new Date(value);
+        } else {
+          // Handle different formats
+          const [datePart, timePart] = value.split(' ');
+          let [year, month, day] = format.includes('YYYY') 
+            ? datePart.split(/[-\/]/)
+            : datePart.split(/[-\/]/).reverse();
+
+          date = new Date(year, month - 1, day);
+          if (timePart) {
+            const [hours, minutes, seconds] = timePart.split(':');
+            date.setHours(hours, minutes, seconds);
+          }
+        }
+
+        if (!isNaN(date.getTime())) {
+          return date.toISOString().slice(0, 19).replace('T', ' ');
+        }
+      } catch (error) {
+        console.warn('Error standardizing date:', value, error);
+      }
+      return value;
+    },
+
+    generateDataSummary(rows, headers, columnTypes) {
+      const summary = {};
+      headers.forEach((header, index) => {
+        const type = columnTypes[header].type;
+        const values = rows.map(row => row[index]).filter(v => v !== null && v !== undefined && v !== '');
+        
+        summary[header] = {
+          type,
+          nonNullCount: values.length,
+          nullCount: rows.length - values.length,
+          unique: new Set(values).size
+        };
+
+        if (type === 'number') {
+          summary[header].min = Math.min(...values);
+          summary[header].max = Math.max(...values);
+          summary[header].avg = values.reduce((a, b) => a + parseFloat(b), 0) / values.length;
+        }
+        
+        if (type === 'date') {
+          const dates = values.map(v => new Date(v)).filter(d => !isNaN(d));
+          if (dates.length > 0) {
+            summary[header].earliest = new Date(Math.min(...dates));
+            summary[header].latest = new Date(Math.max(...dates));
+          }
+        }
+      });
+      
+      return summary;
     }
   }
 }

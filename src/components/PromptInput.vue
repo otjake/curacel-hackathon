@@ -34,7 +34,11 @@ export default {
       suggestedPrompts: [
         {
           label: 'Claims Value Analysis',
-          prompt: 'Analyze claims for the top 5 providers, generating separate charts for each of the following metrics: \n1. A comparison of submitted claims value against approved amounts value for each provider. \n2. Savings achieved by each provider \n3. Top rejection reasons with associated cost savings \n Ensure each metric has its own distinct chart for clarity. \n based on values provided.',
+          prompt: `Analyze claims for the top 5 providers by total sum of "Amount Submitted", generating separate charts for each of the following metrics:
+1. A comparison of submitted claims value ("Sum of Amount Submitted") against approved amounts ("Sum of Amount Approved") for each provider.
+2. Savings achieved (sum of Amount Submitted - sum of Amount Approved) by each provider
+3. Top rejection reasons with associated cost savings
+Ensure each metric has its own distinct chart for clarity.`,
           structure: {
             type: 'claims_value',
             metrics: {
@@ -45,101 +49,100 @@ export default {
                 'rejection_reasons'
               ],
               aggregations: {
-                by_provider: ['submitted_value', 'approved_value', 'savings'],
-                by_reason: ['count', 'value_saved'],
-                limit: 5 // Limit to top 5 providers
+                by_provider: {
+                  group_by: 'Provider Name',
+                  metrics: [
+                    { 
+                      field: 'Amount Submitted', 
+                      alias: 'total_submitted',
+                      aggregation: 'sum',
+                      label: 'Total Amount Submitted'
+                    },
+                    { 
+                      field: 'Amount Approved', 
+                      alias: 'total_approved',
+                      aggregation: 'sum',
+                      label: 'Total Amount Approved'
+                    },
+                    { 
+                      calculation: 'SUM(Amount Submitted) - SUM(Amount Approved)',
+                      alias: 'total_savings',
+                      label: 'Total Savings'
+                    }
+                  ],
+                  sort: {
+                    field: 'total_submitted',
+                    order: 'desc'
+                  },
+                  limit: 5
+                }
               }
             },
             visualization: {
-              layout: {
-                metrics: [
-                  {
-                    title: 'Total Claims Value',
+              charts: [
+                {
+                  title: 'Total Claims Value by Provider',
+                  type: 'bar',
+                  stacked: false,
+                  data: {
+                    x: {
+                      field: 'Provider Name',
+                      type: 'category'
+                    },
+                    y: [
+                      {
+                        field: 'total_submitted',
+                        label: 'Total Submitted Value',
+                        format: 'currency'
+                      },
+                      {
+                        field: 'total_approved',
+                        label: 'Total Approved Value',
+                        format: 'currency'
+                      }
+                    ]
+                  },
+                  colors: ['#FF4D4D', '#4D7FFF'],
+                  yAxis: {
                     format: 'currency',
-                    prefix: 'KES',
-                    suffix: 'Million',
-                    highlight: true
+                    title: 'Total Amount in KES'
                   },
-                  {
-                    title: 'Total Savings',
+                  xAxis: {
+                    title: 'Provider Name',
+                    rotate: -45
+                  }
+                },
+                {
+                  title: 'Total Provider Savings',
+                  type: 'bar',
+                  horizontal: true,
+                  data: {
+                    x: {
+                      field: 'Provider Name',
+                      type: 'category'
+                    },
+                    y: {
+                      field: 'total_savings',
+                      label: 'Total Savings',
+                      format: 'currency'
+                    }
+                  },
+                  colors: ['#32CD32'],
+                  xAxis: {
                     format: 'currency',
-                    prefix: 'KES',
-                    value_type: 'exact'
-                  }
-                ],
-                charts: [
-                  {
-                    title: 'Claims Value by Provider',
-                    type: 'bar',
-                    stacked: false,
-                    colors: ['#FF4D4D', '#4D7FFF'], // Bright Red and Blue
-                    labels: {
-                      submitted: 'Submitted Value',
-                      approved: 'Approved Value'
-                    },
-                    yAxis: {
-                      format: 'currency',
-                      title: 'Amount in KES'
-                    },
-                    xAxis: {
-                      title: 'Provider'
-                    }
+                    title: 'Total Savings in KES'
                   },
-                  {
-                    title: 'Provider Savings Distribution',
-                    type: 'bar',
-                    horizontal: true,
-                    colors: ['#32CD32'], // Lime Green
-                    metric: 'savings',
-                    sort: 'desc',
-                    yAxis: {
-                      format: 'currency',
-                      title: 'Savings in KES'
-                    },
-                    xAxis: {
-                      title: 'Provider'
-                    }
-                  },
-                  {
-                    title: 'Top Rejection Reasons & Cost Saved',
-                    type: 'bar',
-                    horizontal: true,
-                    colors: ['#FFD700'], // Gold
-                    metric: 'value_saved',
-                    limit: 5,
-                    sort: 'value',
-                    yAxis: {
-                      format: 'currency',
-                      title: 'Amount Saved in KES'
-                    },
-                    xAxis: {
-                      title: 'Rejection Reason'
-                    }
+                  yAxis: {
+                    title: 'Provider Name'
                   }
-                ]
-              }
-            },
-            analysis: {
-              focus_areas: [
-                'provider_comparison',
-                'savings_analysis',
-                'rejection_patterns'
-              ],
-              required_insights: [
-                'top_performing_providers',
-                'highest_savings_providers',
-                'common_rejection_reasons'
-              ],
-              thresholds: {
-                significant_variance: 0.15,
-                notable_saving: 1000000
-              }
+                }
+              ]
             }
           }
         },
         {
           label: 'Provider Performance Dashboard',
-          prompt: 'Analyze providers performance showing: \n1. Top 5 providers by claims volume \n2. approval rates for each provider \n3. Average claim value trends \n based on values provided.\n(Claim Item Comment column decides is approved)',
+          prompt: 'Analyze top 5 providers by total sum of "Amount Submitted", providers performance showing: \n1. Top 5 providers by claims volume \n2. approval rates for each provider \n3. Average claim value trends \n based on dataset provided.\n(Claim Item Comment column decides is approved)',
           structure: {
             type: 'provider_metrics',
             metrics: {
@@ -166,7 +169,7 @@ export default {
                 filters: {
                   approved: {
                     field: 'Claim Item Comment',
-                    values: ['APPROVED', 'OK BY HMO']
+                    values: ['APPROVED', 'OK BY HMO','APPROVED BY PRESET RULE']
                   }
                 },
                 limit: 5
@@ -254,7 +257,7 @@ export default {
         },
         {
           label: 'Top Provider Analysis',
-          prompt: 'Analyze top 5 providers based on the 3 categories below: \n1. claims volume trends \n2. Average claim value patterns \n3. Approval rate variations based on values provided.\nUse provider names for distinction and values provided',
+          prompt: 'Analyze top 5 providers by total sum of "Amount Submitted", based on the 3 categories below: \n1. claims volume trends \n2. Average claim value patterns \n3. Approval rate variations.\n based on dataset provided',
           structure: {
             type: 'provider_trends',
             metrics: {
@@ -405,7 +408,7 @@ export default {
         },
         {
           label: 'Claims Processing Efficiency',
-          prompt: 'Analyze claims processing efficiency metrics and bottlenecks based on values provided.',
+          prompt: 'Analyze claims processing efficiency metrics and bottlenecks based on dataset provided.',
           structure: {
             type: 'processing_efficiency',
             chartType: 'mixed',
@@ -431,7 +434,7 @@ export default {
         },
         {
           label: 'Value Recovery Analysis',
-          prompt: 'Analyze patterns in value saved through claims processing based on value provided.',
+          prompt: 'Analyze patterns in value saved through claims processing based on dataset provided',
           structure: {
             type: 'value_recovery',
             chartType: 'area',
